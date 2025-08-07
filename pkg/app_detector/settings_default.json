@@ -1,0 +1,53 @@
+{
+  "code": {
+    "buttons": [
+      { "name": "Copy",  "icon": "gnome-edit-copy.png", "command": "xdotool key ctrl+c" },
+      { "name": "Paste",  "icon": "gnome-edit-paste.png", "command": "xdotool key ctrl+v" },
+      { "name": "Cut",  "icon": "gnome-edit-cut.png", "command": "xdotool key ctrl+x" },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      { "name": "Select App", "icon": "logo.png", "command": "@select_app" }
+    ]
+  },
+  "select_app": {
+    "buttons": [
+      { "name": "Chrome",  "icon": "apps-chrome.png", "command": "$chrome" },
+      { "name": "VS Code",  "icon": "apps-vscode.png", "command": "$code" },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      { "name": "Exit", "icon": "gnome-application-exit.png", "command": "@" }
+    ]
+  },
+  "default": {
+    "buttons": [
+      { "name": "Copy",  "icon": "gnome-edit-copy.png", "command": "xdotool key ctrl+c" },
+      { "name": "Paste",  "icon": "gnome-edit-paste.png", "command": "xdotool key ctrl+v" },
+      { "name": "Cut",  "icon": "gnome-edit-cut.png", "command": "xdotool key ctrl+x" },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      {  },
+      { "name": "Select App", "icon": "logo.png", "command": "@select_app" }
+    ]
+  }
+}

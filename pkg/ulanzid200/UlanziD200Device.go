@@ -160,11 +160,12 @@ func (d *UlanziD200Device) writePacket(packet []byte) {
 }
 
 func (d *UlanziD200Device) readPacket(packet []byte) (n int, err error) {
-	if d.device != nil {
-		n, err = d.device.Read(packet)
-	if err != nil {
-		err = fmt.Errorf("readPacket error : %w", err)
+	if d.device == nil {
+		return 0, errors.New("device not connected")
 	}
+	n, err = d.device.Read(packet)
+	if err != nil {
+		return 0, fmt.Errorf("readPacket error: %w", err)
 	}
 	return
 }
@@ -445,12 +446,17 @@ func (d *UlanziD200Device) Start() {
 			}
 			if buttonAction != nil {
 				i := int(buttonAction.Index)
-				if buttonAction.Pressed && i == 13 {
-					d.smallWindowMode = GetNextMode(d.smallWindowMode)
-				} else if !buttonAction.Pressed {
-					d.keyPressedChan <- &KeyPressedEvent{
-						Index: i,
+				if i >= 0 && i < ButtonCount {
+					if buttonAction.Pressed {
+						if i == 12 {
+							d.smallWindowMode = GetNextMode(d.smallWindowMode)
+						}
+						d.keyPressedChan <- &KeyPressedEvent{
+							Index: i,
+						}
 					}
+				} else {
+					fmt.Printf("  Unknown button index: %d\n", i)
 				}
 			}
 		}

@@ -138,7 +138,8 @@ func onReady() {
 	fmt.Printf("LoadAppSettings: loaded=%v err=%v\n", loaded, err)
 	initialSettings := appdetector.GetSettingsForProcess("default")
 	if initialSettings != nil {
-		setSettings(dev, initialSettings)
+		settings = initialSettings
+		setSettings(dev, settings)
 	} else {
 		fmt.Println("WARNING: No default settings found!")
 	}

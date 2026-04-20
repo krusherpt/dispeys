@@ -120,9 +120,19 @@ func onReady() {
 				} else if strings.HasPrefix(command, "$") {
 					command=strings.TrimSpace(strings.TrimPrefix(command, "$"))
 					_ = appdetector.FocusOrRun(command)
+					if stopProcessDetect {
+						setSettings(dev, settingsNP)
+					} else {
+						setSettings(dev, settings)
+					}
 				} else {
 					if err := exec.Command("sh", "-c", command).Run(); err != nil {
 						fmt.Printf("Command failed: %v\n", err)
+					}
+					if stopProcessDetect {
+						setSettings(dev, settingsNP)
+					} else {
+						setSettings(dev, settings)
 					}
 				}
 			}

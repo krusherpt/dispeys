@@ -383,7 +383,7 @@ func New(mode SmallWindowMode, IconPath, TmpPath string) *UlanziD200Device {
 		iconPath:        IconPath,
 		tmpPath:         TmpPath,
 		keyPressedChan:  make(chan *KeyPressedEvent),
-		refreshChan:     make(chan struct{}),
+		refreshChan:     make(chan struct{}, 1),
 	}
 }
 

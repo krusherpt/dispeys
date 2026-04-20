@@ -12,57 +12,8 @@ import (
 // FocusOrRun: program - имя бинарника, args - аргументы при запуске (если потребуется запустить).
 // Возвращает ошибку в случае проблем.
 func FocusOrRun(program string, args ...string) error {
-	// 1) Найти PID'ы процесса
-	pids, err := getPIDs(program)
-	if err != nil {
-		return fmt.Errorf("getPIDs: %w", err)
-	}
-
-	// 2) Получить список окон и отфильтровать по PID'ам
-	winIDs, err := windowsForPIDs(pids)
-	if err != nil {
-		return fmt.Errorf("windowsForPIDs: %w", err)
-	}
-
-	// 3) Если окон нет — запустить приложение
-	if len(winIDs) == 0 {
-		// Попробуем запустить программу
-		if err := startProgram(program, args...); err != nil {
-			return fmt.Errorf("startProgram: %w", err)
-		}
-		return nil
-	}
-
-	// 4) Получить активное окно
-	active, err := getActiveWindow()
-	if err != nil {
-		return fmt.Errorf("getActiveWindow: %w", err)
-	}
-
-	// 5) Решить что активировать
-	var toActivate string
-	if active == "" {
-		// никакое окно не определено — активируем первое
-		toActivate = winIDs[0]
-	} else {
-		// проверить, входит ли active в список winIDs
-		idx := indexOf(winIDs, active)
-		if idx == -1 {
-			// активное окно не из нашего списка — активируем первое
-			toActivate = winIDs[0]
-		} else {
-			// активируем следующее (wrap)
-			next := (idx + 1) % len(winIDs)
-			toActivate = winIDs[next]
-		}
-	}
-
-	// 6) Активируем окно
-	if err := activateWindow(toActivate); err != nil {
-		return fmt.Errorf("activateWindow: %w", err)
-	}
-
-	return nil
+	// Всегда запускаем новый экземпляр
+	return startProgram(program, args...)
 }
 
 func getPIDs(program string) ([]string, error) {

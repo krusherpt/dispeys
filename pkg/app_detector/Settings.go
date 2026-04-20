@@ -88,7 +88,7 @@ func CreateDefaultFiles(path, iconsTargetDir string) (created bool, err error) {
 		if err != nil {
 			return fmt.Errorf("ошибка открытия встроенного файла %s: %w", path, err)
 		}
-		defer inFile.Close()
+		defer func() { _ = inFile.Close() }()
 
 		tmpTarget := targetPath + ".tmp"
 		outFile, err := os.OpenFile(tmpTarget, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
@@ -97,11 +97,11 @@ func CreateDefaultFiles(path, iconsTargetDir string) (created bool, err error) {
 		}
 
 		if _, err := io.Copy(outFile, inFile); err != nil {
-			outFile.Close()
-			os.Remove(tmpTarget)
+			_ = outFile.Close()
+			_ = os.Remove(tmpTarget)
 			return fmt.Errorf("ошибка записи файла %s: %w", tmpTarget, err)
 		}
-		outFile.Close()
+		_ = outFile.Close()
 
 		fmt.Println(targetPath)
 		if err := os.Rename(tmpTarget, targetPath); err != nil {

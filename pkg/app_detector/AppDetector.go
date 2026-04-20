@@ -36,19 +36,19 @@ func (a *AppDetector) Start() {
 	go func() {
 		for {
 			currentProcessName, currentWinID, err := getActiveWindowProcessName(winID)
-			if err == nil {
-				if currentProcessName != "" && (processName == "" || processName != currentProcessName) {
+			if err == nil && currentProcessName != "" {
+				if processName == "" || processName != currentProcessName {
 					processName = currentProcessName
 					winID = currentWinID
-					_, err = LoadAppSettings(a.settingsFilePath, a.iconsDirPath)
-					if err != nil {
-						fmt.Println(err)
+					_, loadErr := LoadAppSettings(a.settingsFilePath, a.iconsDirPath)
+					if loadErr != nil {
+						fmt.Println("LoadAppSettings error:", loadErr)
 					}
-					fmt.Printf("%s, %#v\n", processName, AppSettings)
 					settings := GetSettingsForProcess(processName)
-					if settings !=nil {
-						a.processChangedChan <- settings
-
+					if settings == nil {
+						settings = GetSettingsForProcess("default")
+					}
+					if settings != nil {
 						select {
 						case a.processChangedChan <- settings:
 							fmt.Println("process changed to ", processName, " done")
@@ -57,11 +57,11 @@ func (a *AppDetector) Start() {
 						}
 					}
 				}
-			} else {
+			} else if err != nil {
 				fmt.Println(err)
 			}
 			time.Sleep(2 * time.Second)
-				
+
 			if a.stopped {
 				break
 			}

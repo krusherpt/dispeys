@@ -72,7 +72,8 @@ func getPIDs(program string) ([]string, error) {
 	if err != nil {
 		// pgrep возвращает ненулевой код если ничего не найдено.
 		// Тогда считаем что PID'ов нет — вернуть пустой с nil ошибкой.
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
 			if len(exitErr.Stderr) == 0 {
 				// отсутствие совпадений
 				return nil, nil
@@ -134,7 +135,8 @@ func getActiveWindow() (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		// если ошибка или нет активного окна — вернуть пустую строку без ошибки
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
 			if len(exitErr.Stderr) == 0 {
 				return "", nil
 			}
@@ -180,7 +182,7 @@ func activateWindow(winid string) error {
 		// Попробуем xdotool windowactivate <winid> (иногда принимает decimal)
 		alt := exec.Command("xdotool", "windowactivate", winid)
 		if err2 := alt.Run(); err2 != nil {
-			return fmt.Errorf("wmctrl failed: %v; xdotool also failed: %v", err, err2)
+			return fmt.Errorf("wmctrl failed: %w; xdotool also failed: %w", err, err2)
 		}
 	}
 	return nil

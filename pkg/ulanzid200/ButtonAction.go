@@ -24,7 +24,7 @@ func ParseInput(dev *UlanziD200Device, inp []byte) (action *ButtonAction, info *
 		return nil, nil, err
 	}
 
-	if parsed.Data == nil {
+	if parsed == nil || parsed.Data == nil {
 		return nil, nil, nil
 	}
 

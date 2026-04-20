@@ -35,7 +35,7 @@ func GetGPUUsage() (float64, error) {
 	str := strings.TrimSpace(string(out))
 	value, err := strconv.ParseFloat(str, 64)
 	if err != nil {
-		return 0, fmt.Errorf("не удалось распарсить вывод nvidia-smi: %v", err)
+		return 0, fmt.Errorf("не удалось распарсить вывод nvidia-smi: %w", err)
 	}
 	return value, nil
 }

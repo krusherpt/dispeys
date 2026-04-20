@@ -45,6 +45,15 @@ func ParseIncomingStruct(inp []byte) (*ParsedPacket, error) {
 			Data:            text,
 		}, nil
 
+	case 0x030a: // IN_BRIGHTNESS_RESPONSE - ignore, device is acknowledging brightness change
+		return nil, nil
+
+	case 0x0103: // Unknown input response (likely button state update) - ignore
+		return nil, nil
+
+	case 0x0104: // Another unknown input protocol - ignore
+		return nil, nil
+
 	default:
 		return nil, fmt.Errorf("неизвестный протокол команды: 0x%04x", cmd)
 	}

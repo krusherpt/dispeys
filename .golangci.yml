@@ -1,0 +1,42 @@
+version: "2"
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - dupword
+    - copyloopvar
+    - errname
+    - errorlint
+    - canonicalheader
+
+linters.settings:
+  errcheck:
+    check-blank: false
+  errname:
+    # Suffix for errors that should be named as sentinel errors
+    suffix:
+      - Error
+      - Err
+
+issues:
+  exclude-rules:
+    # Exclude errcheck for generated/close calls
+    - path: _test\.go
+      linters:
+        - errcheck
+    # Exclude govet on test files for fmt.Printf
+    - path: _test\.go
+      linters:
+        - govet
+      text: "printf"
+
+format:
+  enable:
+    - goimports
+  local-prefixes: github.com/bjaka-max/dispeys

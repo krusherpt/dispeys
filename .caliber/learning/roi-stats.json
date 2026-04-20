@@ -1,0 +1,54 @@
+{
+  "learnings": [],
+  "sessions": [
+    {
+      "timestamp": "2026-04-19T16:39:19.240Z",
+      "sessionId": "c5db2a39-40a3-4504-a3b3-6b97673d2378",
+      "eventCount": 50,
+      "failureCount": 4,
+      "promptCount": 10,
+      "wasteSeconds": 371,
+      "hadLearningsAvailable": false,
+      "learningsCount": 0,
+      "newLearningsProduced": 0,
+      "taskCount": 3,
+      "taskSuccessCount": 1,
+      "taskCorrectionCount": 2,
+      "taskFailureCount": 0
+    },
+    {
+      "timestamp": "2026-04-19T20:35:36.994Z",
+      "sessionId": "c5db2a39-40a3-4504-a3b3-6b97673d2378",
+      "eventCount": 117,
+      "failureCount": 7,
+      "promptCount": 29,
+      "wasteSeconds": 559,
+      "hadLearningsAvailable": false,
+      "learningsCount": 0,
+      "newLearningsProduced": 0
+    },
+    {
+      "timestamp": "2026-04-19T20:39:00.159Z",
+      "sessionId": "c5db2a39-40a3-4504-a3b3-6b97673d2378",
+      "eventCount": 119,
+      "failureCount": 7,
+      "promptCount": 29,
+      "wasteSeconds": 559,
+      "hadLearningsAvailable": false,
+      "learningsCount": 0,
+      "newLearningsProduced": 0
+    }
+  ],
+  "totals": {
+    "totalWasteTokens": 0,
+    "totalWasteSeconds": 1489,
+    "totalSessionsWithLearnings": 0,
+    "totalSessionsWithoutLearnings": 3,
+    "totalFailuresWithLearnings": 0,
+    "totalFailuresWithoutLearnings": 18,
+    "estimatedSavingsTokens": 0,
+    "estimatedSavingsSeconds": 0,
+    "firstSessionTimestamp": "2026-04-19T16:39:19.240Z",
+    "lastSessionTimestamp": "2026-04-19T20:39:00.159Z"
+  }
+}

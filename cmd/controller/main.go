@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/getlantern/systray"
 
@@ -72,14 +73,17 @@ func onReady() {
 		refreshChan := dev.RefreshChan()
 		for {
 			select {
-			case settings = <-processChangedChan:
-			case <-refreshChan:
-				if stopProcessDetect {
-					setSettings(dev, settingsNP)
+			case newSettings := <-processChangedChan:
+				settings = newSettings
+				if !stopProcessDetect {
+					setSettings(dev, settings)
 				}
-			}
-			if !stopProcessDetect {
-				setSettings(dev, settings)
+			case <-refreshChan:
+				if stopProcessDetect && settingsNP != nil {
+					setSettings(dev, settingsNP)
+				} else if settings != nil {
+					setSettings(dev, settings)
+				}
 			}
 		}
 	}()
@@ -90,8 +94,14 @@ func onReady() {
 			fmt.Printf("keyPressedEvent: %#v\n", keyPressedEvent)
 			var command string
 			if stopProcessDetect {
+				if settingsNP == nil || len(settingsNP.Buttons) <= keyPressedEvent.Index {
+					continue
+				}
 				command = settingsNP.Buttons[keyPressedEvent.Index].Command
 			} else {
+				if settings == nil || len(settings.Buttons) <= keyPressedEvent.Index {
+					continue
+				}
 				command = settings.Buttons[keyPressedEvent.Index].Command
 			}
 			if command != "" {
@@ -109,17 +119,35 @@ func onReady() {
 					}
 				} else if strings.HasPrefix(command, "$") {
 					command=strings.TrimSpace(strings.TrimPrefix(command, "$"))
-					appdetector.FocusOrRun(command)
+					_ = appdetector.FocusOrRun(command)
 				} else {
-					_ = exec.Command("sh", "-c", command).Start()
+					if err := exec.Command("sh", "-c", command).Run(); err != nil {
+						fmt.Printf("Command failed: %v\n", err)
+					}
 				}
 			}
 		}
 	}()
 	appDetector.Start()
 	dev.Start()
+
+	// Load and set initial default settings after a short delay
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("Loading initial settings...")
+	loaded, err := appdetector.LoadAppSettings(config.GetSettingsPath(), config.GetIconsDir())
+	fmt.Printf("LoadAppSettings: loaded=%v err=%v\n", loaded, err)
+	initialSettings := appdetector.GetSettingsForProcess("default")
+	if initialSettings != nil {
+		setSettings(dev, initialSettings)
+	} else {
+		fmt.Println("WARNING: No default settings found!")
+	}
 }
+
 func setSettings(dev *ulanzid200.UlanziD200Device, settings *appdetector.Application) {
+	if settings == nil {
+		return
+	}
 	buttons := make(map[int]ulanzid200.Button)
 	for i, button := range settings.Buttons {
 		fmt.Println(i, button.Name)
@@ -134,9 +162,38 @@ func onExit() {
 	fmt.Println("Завершение работы")
 }
 
+// showOutputOnActiveWindow displays captured output on the active window using xdotool_type
+func showOutputOnActiveWindow(output string) error {
+	if output == "" {
+		return nil
+	}
+
+	// Get active window ID
+	cmd := exec.Command("xdotool", "getactivewindow")
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get active window: %w", err)
+	}
+
+	_ = string(out)
+
+	// Type each character with a small delay for readability
+	for _, c := range output {
+		xdotoolTypeCmd := exec.Command("xdotool", "type", fmt.Sprintf("%c", c))
+		if err := xdotoolTypeCmd.Run(); err != nil {
+			return fmt.Errorf("failed to type character %q: %w", c, err)
+		}
+		time.Sleep(50 * time.Millisecond) // Small delay between characters
+	}
+
+	// Press Enter at the end to finalize output
+	enterCmd := exec.Command("xdotool", "key", "return")
+	return enterCmd.Run()
+}
+
 func openSettingsWindow() {
 	editor := config.GetEditorForTextFile()
-	if editor!= "" {
+	if editor != "" {
 		cmdArg := strings.ReplaceAll(editor, "%U", config.ShellEscape(config.GetSettingsPath()))
 		_ = exec.Command("sh", "-c", cmdArg).Start()
 	}

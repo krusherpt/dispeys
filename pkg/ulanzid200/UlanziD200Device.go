@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"errors"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -18,17 +19,17 @@ import (
 )
 
 type UlanziD200Device struct {
-	device           *hid.Device
-	keyPressedChan   chan *KeyPressedEvent
-	refreshChan      chan struct{}
-	brightness       int
-	labelStyle       LabelStyle
-	smallWindowMode  SmallWindowMode
-	smallWindowData  SmallWindowData
-	lastActionTime   time.Time
-	iconPath         string
-	tmpPath          string
-	stopped					 bool
+	device          *hid.Device
+	keyPressedChan  chan *KeyPressedEvent
+	refreshChan     chan struct{}
+	brightness      int
+	labelStyle      LabelStyle
+	smallWindowMode SmallWindowMode
+	smallWindowData SmallWindowData
+	lastActionTime  time.Time
+	iconPath        string
+	tmpPath         string
+	stopped         bool
 }
 
 const (
@@ -43,7 +44,6 @@ const (
 	IconHeight = 196
 )
 
-
 type CommandProtocol uint16
 
 const (
@@ -54,6 +54,7 @@ const (
 	OUT_SET_LABEL_STYLE          CommandProtocol = 0x000b
 	IN_BUTTON                    CommandProtocol = 0x0101
 	IN_DEVICE_INFO               CommandProtocol = 0x0303
+	IN_BRIGHTNESS_RESPONSE       CommandProtocol = 0x030a
 )
 
 type Packet struct {
@@ -63,7 +64,7 @@ type Packet struct {
 }
 
 type KeyPressedEvent struct {
-	Index   int
+	Index int
 }
 
 func BuildPacket(cmd CommandProtocol, length int, data []byte) []byte {
@@ -72,8 +73,8 @@ func BuildPacket(cmd CommandProtocol, length int, data []byte) []byte {
 
 	buf.Write([]byte{0x7c, 0x7c}) // header
 
-	binary.Write(&buf, binary.BigEndian, uint16(cmd))
-	binary.Write(&buf, binary.LittleEndian, uint32(length))
+	_ = binary.Write(&buf, binary.BigEndian, uint16(cmd))
+	_ = binary.Write(&buf, binary.LittleEndian, uint32(length))
 
 	padded := make([]byte, PacketSize-8)
 	copy(padded, data)
@@ -110,7 +111,6 @@ func (d *UlanziD200Device) SetLabelStyle(style LabelStyle, force bool) {
 	d.writePacket(packet)
 }
 
-
 func (d *UlanziD200Device) SetSmallWindowData(data SmallWindowData, force bool) {
 	data.Mode = d.smallWindowMode
 	if !force && EqualJSON(d.smallWindowData, data) {
@@ -119,7 +119,7 @@ func (d *UlanziD200Device) SetSmallWindowData(data SmallWindowData, force bool) 
 	d.smallWindowData = data
 
 	packetStr := fmt.Sprintf("%d|%v|%v|%v|%v", data.Mode, data.CPU, data.MEM, data.Time, data.GPU)
-	
+
 	packetData := []byte(packetStr)
 	packet := BuildPacket(OUT_SET_SMALL_WINDOW_DATA, len(packetData), packetData)
 	d.writePacket(packet)
@@ -161,15 +161,13 @@ func (d *UlanziD200Device) writePacket(packet []byte) {
 
 func (d *UlanziD200Device) readPacket(packet []byte) (n int, err error) {
 	if d.device != nil {
-		var err error
 		n, err = d.device.Read(packet)
-		if err != nil {
-			err = fmt.Errorf("readPacket error : %w", err)
-		}
+	if err != nil {
+		err = fmt.Errorf("readPacket error : %w", err)
+	}
 	}
 	return
 }
-
 
 var invalidBytes = [][]byte{
 	{0x00},
@@ -198,8 +196,8 @@ func containsInvalidByte(b byte) bool {
 func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 	buildPath := filepath.Join(d.tmpPath, ".build")
 	pagePath := filepath.Join(buildPath, "page")
-	os.RemoveAll(pagePath)
-	os.MkdirAll(filepath.Join(pagePath, "icons"), os.ModePerm)
+	_ = os.RemoveAll(pagePath)
+	_ = os.MkdirAll(filepath.Join(pagePath, "icons"), os.ModePerm)
 	manifest := make(map[string]interface{})
 	icons := []string{}
 
@@ -226,19 +224,19 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 
 	hash := md5.Sum(manifestData)
 	hashHex := hex.EncodeToString(hash[:])
-	zipPath := filepath.Join(buildPath, hashHex + ".zip")
-	
+	zipPath := filepath.Join(buildPath, hashHex+".zip")
+
 	_, err := os.Stat(zipPath)
 	if err == nil || !os.IsNotExist(err) {
 		return zipPath
 	}
 
-	os.WriteFile(filepath.Join(pagePath, "manifest.json"), manifestData, 0644)
+	_ = os.WriteFile(filepath.Join(pagePath, "manifest.json"), manifestData, 0644)
 
 	for _, icon := range icons {
 		src := filepath.Join(d.iconPath, icon)
 		dst := filepath.Join(pagePath, "icons", icon)
-		copyFile(src, dst)
+		_ = copyFile(src, dst)
 	}
 
 	dummyPath := filepath.Join(pagePath, "dummy.txt")
@@ -284,7 +282,7 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 
 			buf := make([]byte, 1)
 			_, err = f.Read(buf)
-			if err != nil && err != io.EOF {
+			if err != nil && !errors.Is(err, io.EOF) {
 				panic(err)
 			}
 
@@ -293,7 +291,7 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 				break
 			}
 		}
-		f.Close()
+		_ = f.Close()
 
 		if valid {
 			break
@@ -316,10 +314,10 @@ func ZipFolder(srcDir, zipFile string) error {
 	if err != nil {
 		return fmt.Errorf("не удалось создать архив: %w", err)
 	}
-	defer outFile.Close()
+	defer func() { _ = outFile.Close() }()
 
 	zipWriter := zip.NewWriter(outFile)
-	defer zipWriter.Close()
+	defer func() { _ = zipWriter.Close() }()
 
 	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -356,7 +354,7 @@ func ZipFolder(srcDir, zipFile string) error {
 			if err != nil {
 				return err
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			_, err = io.Copy(writer, file)
 			if err != nil {
@@ -381,10 +379,10 @@ func copyFile(src, dst string) error {
 func New(mode SmallWindowMode, IconPath, TmpPath string) *UlanziD200Device {
 	return &UlanziD200Device{
 		smallWindowMode: mode,
-		iconPath: IconPath,
-		tmpPath: TmpPath,
-		keyPressedChan: make(chan *KeyPressedEvent),
-		refreshChan : make(chan struct{}),
+		iconPath:        IconPath,
+		tmpPath:         TmpPath,
+		keyPressedChan:  make(chan *KeyPressedEvent),
+		refreshChan:     make(chan struct{}),
 	}
 }
 
@@ -402,16 +400,20 @@ func (d *UlanziD200Device) Start() {
 		for {
 			if d.device != nil {
 				d.SetSmallWindowData(NewSmallWindowData(map[string]interface{}{}), false)
-				time.Sleep(500*time.Millisecond)
+				time.Sleep(500 * time.Millisecond)
 			}
-			
+
 			if d.stopped {
 				break
 			}
 		}
 	}()
 	go func() {
-		defer d.device.Close()
+		if d.device != nil {
+			defer func() {
+			_ = d.device.Close()
+		}()
+		}
 		packet := make([]byte, 1024)
 		for {
 			if d.device == nil {
@@ -431,7 +433,7 @@ func (d *UlanziD200Device) Start() {
 				d.connectToDevice()
 				continue
 			}
-			
+
 			buttonAction, info, err := ParseInput(d, packet[:plen])
 			if err != nil {
 				fmt.Printf("  Error parsing input: %v\n", err)
@@ -462,7 +464,7 @@ func (d *UlanziD200Device) connectToDevice() bool {
 	}
 	succcess := false
 	if d.device != nil {
-		d.device.Close()
+		_ = d.device.Close()
 		time.Sleep(3 * time.Second)
 	}
 
@@ -505,4 +507,3 @@ func (d *UlanziD200Device) connectToDevice() bool {
 func (d *UlanziD200Device) Stop() {
 	d.stopped = true
 }
-

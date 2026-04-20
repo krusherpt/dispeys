@@ -1,0 +1,5 @@
+{
+  "timestamp": "2026-04-19T20:28:51.216Z",
+  "error": "Claude CLI timed out after 600s. Set CALIBER_CLAUDE_CLI_TIMEOUT_MS to increase.",
+  "pid": 22548
+}

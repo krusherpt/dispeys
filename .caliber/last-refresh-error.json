@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-04-19T13:04:50.158Z",
+  "error": "Claude CLI timed out after 600s. Set CALIBER_CLAUDE_CLI_TIMEOUT_MS to increase.",
+  "stack": "Error: Claude CLI timed out after 600s. Set CALIBER_CLAUDE_CLI_TIMEOUT_MS to increase.\n    at Timeout._onTimeout (file:///usr/lib/node_modules/@rely-ai/caliber/dist/bin.js:3107:13)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+  "cwd": "/home/nyankopc/ai/obsidian/the vault/Planner/Projects/dispeys",
+  "nodeVersion": "v25.9.0"
+}

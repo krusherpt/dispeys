@@ -13,6 +13,7 @@ import (
 	appdetector "github.com/bjaka-max/dispeys/pkg/app_detector"
 	"github.com/bjaka-max/dispeys/pkg/autostart"
 	"github.com/bjaka-max/dispeys/pkg/ulanzid200"
+	"github.com/bjaka-max/dispeys/webserver"
 )
 
 //go:embed logo.png
@@ -26,7 +27,8 @@ func onReady() {
 	systray.SetIcon(iconData)
 	systray.SetTooltip("dispeys")
 
-	mSettings := systray.AddMenuItem("Settings", "Application settings")
+	mSettings := systray.AddMenuItem("Web Settings", "Open web settings UI")
+	mSettingsWeb := systray.AddMenuItem("Settings (JSON)", "Edit settings file")
 
 	enabled, _ := autostart.IsEnabled(config.AppName)
 	mAutostart := systray.AddMenuItemCheckbox("Autostart", "Execute application on enter", enabled)
@@ -38,6 +40,8 @@ func onReady() {
 		for {
 			select {
 			case <-mSettings.ClickedCh:
+				webserver.StartServer(8080)
+			case <-mSettingsWeb.ClickedCh:
 				openSettingsWindow()
 			case <-mAutostart.ClickedCh:
 				if mAutostart.Checked() {
@@ -171,35 +175,6 @@ func setSettings(dev *ulanzid200.UlanziD200Device, settings *appdetector.Applica
 
 func onExit() {
 	fmt.Println("Завершение работы")
-}
-
-// showOutputOnActiveWindow displays captured output on the active window using xdotool_type
-func showOutputOnActiveWindow(output string) error {
-	if output == "" {
-		return nil
-	}
-
-	// Get active window ID
-	cmd := exec.Command("xdotool", "getactivewindow")
-	out, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("failed to get active window: %w", err)
-	}
-
-	_ = string(out)
-
-	// Type each character with a small delay for readability
-	for _, c := range output {
-		xdotoolTypeCmd := exec.Command("xdotool", "type", fmt.Sprintf("%c", c))
-		if err := xdotoolTypeCmd.Run(); err != nil {
-			return fmt.Errorf("failed to type character %q: %w", c, err)
-		}
-		time.Sleep(50 * time.Millisecond) // Small delay between characters
-	}
-
-	// Press Enter at the end to finalize output
-	enterCmd := exec.Command("xdotool", "key", "return")
-	return enterCmd.Run()
 }
 
 func openSettingsWindow() {

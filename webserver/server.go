@@ -22,17 +22,18 @@ var SettingsPath string
 // StartServer starts the web UI on a random free port.
 // It returns the actual port and a cancel function.
 func StartServer() (port int, cancel func(), err error) {
-	http.HandleFunc("/api/settings", handleSettings)
-	http.HandleFunc("/api/icons", handleIcons)
-	http.HandleFunc("/api/upload", handleUpload)
-	http.HandleFunc("/api/health", handleHealth)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/settings", handleSettings)
+	mux.HandleFunc("/api/icons", handleIcons)
+	mux.HandleFunc("/api/upload", handleUpload)
+	mux.HandleFunc("/api/health", handleHealth)
 
 	// Serve user icons from disk
-	http.HandleFunc("/icons/", serveIcons)
+	mux.HandleFunc("/icons/", serveIcons)
 
 	// Serve embedded static files
 	staticSub, _ := fs.Sub(staticFS, "static")
-	http.Handle("/", http.FileServer(http.FS(staticSub)))
+	mux.Handle("/", http.FileServer(http.FS(staticSub)))
 
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -43,7 +44,7 @@ func StartServer() (port int, cancel func(), err error) {
 	fmt.Printf("Web UI starting at http://localhost:%d\n", port)
 
 	go func() {
-		if serveErr := http.Serve(listener, nil); serveErr != nil && serveErr != http.ErrServerClosed {
+		if serveErr := http.Serve(listener, mux); serveErr != nil && serveErr != http.ErrServerClosed {
 			fmt.Printf("Web server error: %v\n", serveErr)
 		}
 	}()

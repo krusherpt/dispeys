@@ -5,28 +5,29 @@ Linux tray application for Ulanzi D200 stream deck devices. Assign custom button
 ## Features
 
 - **Window-aware button layouts** — switch button configurations automatically when you switch apps
-- **Web UI** — configure buttons via a browser at `http://localhost:19876` (tray menu: "Web Settings")
 - **Command buttons** — launch apps, focus windows, switch profiles, or run shell commands
 - **Autostart** — toggle on login via tray menu
 
-## Quick Start
+## Requirements
+
+- Linux with X11
+- `xdotool`, `xprop`, `wmctrl`, `xdg-mime`
+- Go 1.21+
+- GCC (for CGO HID library)
+
+## Build
 
 ```bash
 go build -o dispeys ./cmd/controller/
 ./dispeys
 ```
 
-A tray icon appears. Click **"Web Settings"** to open the web UI in your browser.
-
-## Requirements
-
-- Linux with X11
-- `xdotool`, `xprop`, `wmctrl`, `xdg-mime`
-
-## Build
+## Install as System Service
 
 ```bash
-go build -o dispeys ./cmd/controller/
+sudo ./install.sh
+sudo systemctl enable dispeys
+sudo systemctl start dispeys
 ```
 
 ## Settings
@@ -45,4 +46,3 @@ Command prefixes:
 | `cmd/controller` | Tray menu, main loop |
 | `pkg/ulanzid200` | HID device communication |
 | `pkg/app_detector` | Active window detection, settings |
-| `webserver` | Embedded web UI for configuration |

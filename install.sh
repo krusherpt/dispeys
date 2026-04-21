@@ -64,20 +64,12 @@ WantedBy=default.target
 EOF
 chown -R "${USER}:${USER}" "/home/${USER}/.config/systemd"
 
-echo ""
-echo "Enable with:"
+systemctl daemon-reload
+info "Service installed. Enable and start with:"
 echo "  loginctl enable-linger ${USER}"
 echo "  systemctl --user enable dispeys"
 echo "  systemctl --user start dispeys"
 echo ""
 echo "Check status with:"
 echo "  systemctl --user status dispeys"
-
-systemctl daemon-reload
-
-info "Enabling and starting service..."
-loginctl enable-linger "${USER}"
-sudo -u "$USER" bash -c 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user enable --now dispeys'
-info "Service installed and started."
-info "Check status with:"
-echo "  systemctl --user status dispeys"
+echo "  journalctl --user -u dispeys -f"

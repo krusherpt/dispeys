@@ -39,8 +39,14 @@ cp dispeysController "${INSTALL_DIR}/${SERVICE_NAME}"
 chmod 755 "${INSTALL_DIR}/${SERVICE_NAME}"
 rm -f dispeysController
 
-info "Installing systemd service..."
-cat > "/etc/systemd/system/${SERVICE_FILE}" <<EOF
+USER="${SUDO_USER:-$USER}"
+if ! id "$USER" &>/dev/null; then
+    error "User $USER not found"
+fi
+
+info "Installing systemd user service (running as $USER)..."
+mkdir -p "/home/${USER}/.config/systemd/user"
+cat > "/home/${USER}/.config/systemd/user/${SERVICE_FILE}" <<EOF
 [Unit]
 Description=Dispeys - Stream Deck Tray Controller
 After=graphical.target
@@ -54,12 +60,24 @@ Restart=on-failure
 RestartSec=5
 
 [Install]
-WantedBy=graphical.target
+WantedBy=default.target
 EOF
+chown -R "${USER}:${USER}" "/home/${USER}/.config/systemd"
+
+echo ""
+echo "Enable with:"
+echo "  loginctl enable-linger ${USER}"
+echo "  systemctl --user enable dispeys"
+echo "  systemctl --user start dispeys"
+echo ""
+echo "Check status with:"
+echo "  systemctl --user status dispeys"
 
 systemctl daemon-reload
-info "Service installed. Enable with:"
-echo "  sudo systemctl enable ${SERVICE_NAME}"
-echo "Start with:"
-echo "  sudo systemctl start ${SERVICE_NAME}"
-info "Done."
+
+info "Enabling and starting service..."
+loginctl enable-linger "${USER}"
+sudo -u "$USER" bash -c 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user enable --now dispeys'
+info "Service installed and started."
+info "Check status with:"
+echo "  systemctl --user status dispeys"

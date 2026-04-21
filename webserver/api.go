@@ -111,7 +111,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = outFile.Close() }()
 
 	if err := xpng.Encode(outFile, resized); err != nil {
-		os.Remove(targetPath)
+		_ = os.Remove(targetPath)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

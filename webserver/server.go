@@ -49,7 +49,7 @@ func StartServer() (port int, cancel func(), err error) {
 		}
 	}()
 
-	cancel = func() { listener.Close() }
+	cancel = func() { _ = listener.Close() }
 	return port, cancel, nil
 }
 

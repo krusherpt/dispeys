@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dispeys Settings</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛</text></svg>">
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --accent: #58a6ff;
+  --accent2: #1f6feb;
+  --green: #3fb950;
+  --red: #f85149;
+  --orange: #d29922;
+  --radius: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header-actions { display: flex; gap: 8px; }
+.btn {
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover { background: var(--border); }
+.btn-primary { background: var(--accent2); border-color: var(--accent2); }
+.btn-primary:hover { background: var(--accent); }
+.btn-danger { background: transparent; border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon {
+  padding: 4px 8px;
+  font-size: 16px;
+  line-height: 1;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text2);
+  font-size: 14px;
+  transition: all 0.15s;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.tab:hover { color: var(--text); background: var(--surface); }
+.tab.active { color: var(--text); background: var(--surface); border-color: var(--border); }
+
+/* Process list */
+.process-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.process-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.process-item:hover { border-color: var(--accent); }
+.process-item.active { border-color: var(--accent); background: rgba(88, 166, 255, 0.05); }
+.process-name { flex: 1; font-weight: 500; }
+.process-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--surface2);
+  border-radius: 10px;
+  color: var(--text2);
+}
+
+/* Buttons grid */
+.buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 80px);
+  gap: 12px;
+  justify-content: center;
+  margin: 24px 0;
+}
+.button-slot {
+  aspect-ratio: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+  padding: 4px;
+}
+.button-slot:hover { border-color: var(--accent); }
+.button-slot.has-icon { border-color: var(--green); }
+.button-slot .icon-preview {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.button-slot .icon-placeholder {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text2);
+  font-size: 20px;
+}
+.button-slot .btn-number {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  color: var(--text2);
+}
+.button-slot .btn-label {
+  font-size: 9px;
+  color: var(--text2);
+  text-align: center;
+  margin-top: 2px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 480px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal h2 { margin-bottom: 16px; font-size: 18px; }
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text2);
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+/* Icons panel */
+.icons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.icon-item {
+  aspect-ratio: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  overflow: hidden;
+  padding: 4px;
+}
+.icon-item:hover { border-color: var(--accent); }
+.icon-item img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+.icon-item .icon-name {
+  font-size: 9px;
+  color: var(--text2);
+  text-align: center;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Upload area */
+.upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin: 16px 0;
+}
+.upload-area:hover { border-color: var(--accent); color: var(--text); }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 20px;
+  font-size: 14px;
+  z-index: 300;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.2s;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--text2);
+}
+.empty-state p { margin-top: 8px; }
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text2);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.status-dot.offline { background: var(--red); }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Dispeys Settings</h1>
+  <div class="header-actions">
+    <div class="status-bar">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Connecting...</span>
+    </div>
+    <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" data-tab="processes" onclick="switchTab('processes')">Processes</div>
+    <div class="tab" data-tab="icons" onclick="switchTab('icons')">Icons</div>
+  </div>
+
+  <div id="tab-processes">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2>Button Layouts</h2>
+      <button class="btn btn-primary btn-sm" onclick="addProcess()">+ New Process</button>
+    </div>
+    <div class="process-list" id="processList"></div>
+    <div id="buttonEditor" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 id="editorTitle">Process</h3>
+        <button class="btn btn-danger btn-sm" onclick="deleteProcess()">Delete Process</button>
+      </div>
+      <div class="buttons-grid" id="buttonsGrid"></div>
+    </div>
+  </div>
+
+  <div id="tab-icons" style="display:none;">
+    <h2>Icon Library</h2>
+    <div class="upload-area" onclick="document.getElementById('iconUpload').click()">
+      <div style="font-size:32px;">+</div>
+      <p>Click to upload icon</p>
+      <p style="font-size:12px;margin-top:4px;">PNG recommended, max 5MB</p>
+    </div>
+    <input type="file" id="iconUpload" accept="image/*" style="display:none" onchange="uploadIcon(this)">
+    <div class="icons-grid" id="iconsGrid"></div>
+  </div>
+</div>
+
+<!-- Button edit modal -->
+<div class="modal-overlay" id="buttonModal">
+  <div class="modal">
+    <h2 id="modalTitle">Edit Button</h2>
+    <div class="form-group">
+      <label>Button Name</label>
+      <input type="text" id="btnName" placeholder="e.g., Chrome">
+    </div>
+    <div class="form-group">
+      <label>Icon</label>
+      <select id="btnIcon"><option value="">(none)</option></select>
+    </div>
+    <div class="form-group">
+      <label>Command</label>
+      <textarea id="btnCommand" placeholder='e.g., $chrome or @firefox'></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeButtonModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveButton()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Process name modal -->
+<div class="modal-overlay" id="processModal">
+  <div class="modal">
+    <h2 id="processModalTitle">New Process</h2>
+    <div class="form-group">
+      <label>Process Name</label>
+      <input type="text" id="processNameInput" placeholder="e.g., chrome">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeProcessModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddProcess()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let settings = {};
+let processes = {};
+let icons = [];
+let activeProcess = null;
+let editingButtonIndex = null;
+
+async function fetchJson(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) return res.json();
+  return res.text();
+}
+
+async function loadSettings() {
+  try {
+    settings = await fetchJson('/api/settings');
+    processes = settings || {};
+    renderProcessList();
+    updateStatus(true);
+  } catch (e) {
+    console.error(e);
+    updateStatus(false);
+    setHtml('processList', '<div class="empty-state"><p>Failed to load settings</p></div>');
+  }
+}
+
+async function loadIcons() {
+  try {
+    icons = await fetchJson('/api/icons');
+  } catch (e) {
+    icons = [];
+  }
+}
+
+function updateStatus(online) {
+  document.getElementById('statusDot').className = 'status-dot' + (online ? '' : ' offline');
+  document.getElementById('statusText').textContent = online ? 'Online' : 'Offline';
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('tab-processes').style.display = tab === 'processes' ? '' : 'none';
+  document.getElementById('tab-icons').style.display = tab === 'icons' ? '' : 'none';
+  if (tab === 'icons') renderIcons();
+}
+
+function setHtml(id, html) {
+  const el = document.getElementById(id);
+  el.innerHTML = html;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function renderProcessList() {
+  const names = Object.keys(processes);
+  if (names.length === 0) {
+    setHtml('processList', '<div class="empty-state"><p>No processes configured</p><p>Click "+ New Process" to start</p></div>');
+    return;
+  }
+  setHtml('processList', names.map(n => `
+    <div class="process-item ${activeProcess === n ? 'active' : ''}" onclick="selectProcess('${n.replace(/'/g, "\\'")}')">
+      <span class="process-name">${escHtml(n)}</span>
+      <span class="process-badge">${(processes[n].buttons || []).length} buttons</span>
+    </div>
+  `).join(''));
+}
+
+function selectProcess(name) {
+  activeProcess = name;
+  renderProcessList();
+  renderButtonEditor();
+}
+
+function renderButtonEditor() {
+  const editor = document.getElementById('buttonEditor');
+  const grid = document.getElementById('buttonsGrid');
+  const title = document.getElementById('editorTitle');
+
+  if (!activeProcess) {
+    editor.style.display = 'none';
+    return;
+  }
+
+  editor.style.display = '';
+  title.textContent = activeProcess;
+
+  const buttons = processes[activeProcess]?.buttons || [];
+  setHtml('buttonsGrid', Array.from({ length: 13 }, (_, i) => {
+    const btn = buttons[i];
+    const hasIcon = btn?.icon;
+    return `
+      <div class="button-slot ${hasIcon ? 'has-icon' : ''}" onclick="openButtonModal(${i})">
+        <span class="btn-number">${i}</span>
+        ${hasIcon
+          ? `<img class="icon-preview" src="/icons/${escHtml(btn.icon)}" alt="${escHtml(btn.name)}">`
+          : '<div class="icon-placeholder">+</div>'
+        }
+        <span class="btn-label">${escHtml(btn?.name || '')}</span>
+      </div>
+    `;
+  }).join(''));
+}
+
+function openButtonModal(index) {
+  editingButtonIndex = index;
+  const buttons = processes[activeProcess]?.buttons || [];
+  const btn = buttons[index] || {};
+  document.getElementById('modalTitle').textContent = `Button ${index}`;
+  document.getElementById('btnName').value = btn.name || '';
+  document.getElementById('btnCommand').value = btn.command || '';
+
+  const sel = document.getElementById('btnIcon');
+  sel.innerHTML = '<option value="">(none)</option>' + icons.map(i =>
+    `<option value="${i}" ${btn.icon === i ? 'selected' : ''}>${i}</option>`
+  ).join('');
+
+  document.getElementById('buttonModal').classList.add('active');
+  document.getElementById('btnName').focus();
+}
+
+function closeButtonModal() {
+  document.getElementById('buttonModal').classList.remove('active');
+  editingButtonIndex = null;
+}
+
+function saveButton() {
+  if (!activeProcess || editingButtonIndex === null) return;
+  if (!processes[activeProcess].buttons) processes[activeProcess].buttons = [];
+  processes[activeProcess].buttons[editingButtonIndex] = {
+    name: document.getElementById('btnName').value,
+    icon: document.getElementById('btnIcon').value,
+    command: document.getElementById('btnCommand').value,
+  };
+  closeButtonModal();
+  renderButtonEditor();
+  renderProcessList();
+}
+
+async function saveSettings() {
+  try {
+    await fetchJson('/api/settings', { method: 'POST', body: JSON.stringify(processes) });
+    showToast('Settings saved!', 'success');
+  } catch (e) {
+    showToast('Failed to save: ' + e.message, 'error');
+  }
+}
+
+function addProcess() {
+  document.getElementById('processModalTitle').textContent = 'New Process';
+  document.getElementById('processNameInput').value = '';
+  document.getElementById('processModal').classList.add('active');
+  document.getElementById('processNameInput').focus();
+}
+
+function closeProcessModal() {
+  document.getElementById('processModal').classList.remove('active');
+}
+
+function confirmAddProcess() {
+  const name = document.getElementById('processNameInput').value.trim().toLowerCase();
+  if (!name) return;
+  if (processes[name]) {
+    showToast('Process already exists', 'error');
+    return;
+  }
+  processes[name] = { name, buttons: [] };
+  closeProcessModal();
+  selectProcess(name);
+}
+
+function deleteProcess() {
+  if (!activeProcess) return;
+  if (!confirm(`Delete process "${activeProcess}"?`)) return;
+  delete processes[activeProcess];
+  activeProcess = null;
+  renderProcessList();
+  renderButtonEditor();
+}
+
+function renderIcons() {
+  setHtml('iconsGrid', icons.map(i => `
+    <div class="icon-item" onclick="selectIconForButton('${i.replace(/'/g, "\\'")}')">
+      <img src="/icons/${escHtml(i)}" alt="${escHtml(i)}">
+      <span class="icon-name">${escHtml(i)}</span>
+    </div>
+  `).join(''));
+}
+
+async function uploadIcon(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append('icon', file);
+  try {
+    const result = await fetchJson('/api/upload', { method: 'POST', body: form });
+    icons.push(result.name);
+    renderIcons();
+    showToast('Icon uploaded: ' + result.name, 'success');
+  } catch (e) {
+    showToast('Upload failed: ' + e.message, 'error');
+  }
+  input.value = '';
+}
+
+function selectIconForButton(name) {
+  if (editingButtonIndex !== null) {
+    document.getElementById('btnIcon').value = name;
+    showToast(`Icon "${name}" selected for button ${editingButtonIndex}`, 'success');
+  }
+}
+
+function showToast(msg, type) {
+  type = type || 'success';
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast ' + type + ' show';
+  setTimeout(function() { toast.classList.remove('show'); }, 3000);
+}
+
+// Health check
+setInterval(function() {
+  fetch('/api/health').catch(function() {});
+}, 5000);
+
+loadSettings();
+loadIcons();
+</script>
+</body>
+</html>

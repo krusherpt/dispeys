@@ -1,5 +1,17 @@
-.idea
-.vscode
-/dispeysController*
-.claude
-.caliber
+# Binaries
+dispeys
+controller
+
+# User config
+settings.json
+settingsclaude.json
+settingsmy.json
+dispeysController/
+
+# IDE
+.idea/
+.vscode/
+
+# Local tooling
+.claude/settings.local.json
+.caliber/

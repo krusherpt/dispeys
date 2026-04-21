@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-19T20:28:51.216Z",
-  "error": "Claude CLI timed out after 600s. Set CALIBER_CLAUDE_CLI_TIMEOUT_MS to increase.",
-  "pid": 22548
+  "timestamp": "2026-04-21T19:33:24.270Z",
+  "error": "Claude Code CLI is installed but not logged in. Run `claude` in your terminal to log in, then retry.",
+  "pid": 109583
 }

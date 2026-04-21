@@ -19,6 +19,8 @@ import (
 //go:embed logo.png
 var iconData []byte
 
+var webCancel func()
+
 func main() {
 	systray.Run(onReady, onExit)
 }
@@ -40,7 +42,16 @@ func onReady() {
 		for {
 			select {
 			case <-mSettings.ClickedCh:
-				webserver.StartServer(8080)
+				port, cancel, err := webserver.StartServer()
+				if err != nil {
+					fmt.Printf("Failed to start web UI: %v\n", err)
+				} else {
+					if webCancel != nil {
+						webCancel()
+					}
+					webCancel = cancel
+					fmt.Printf("Web UI open at http://localhost:%d\n", port)
+				}
 			case <-mSettingsWeb.ClickedCh:
 				openSettingsWindow()
 			case <-mAutostart.ClickedCh:
@@ -58,14 +69,17 @@ func onReady() {
 					}
 				}
 			case <-mQuit.ClickedCh:
+				if webCancel != nil {
+					webCancel()
+				}
 				systray.Quit()
 			}
 		}
 	}()
-	
+
 	dev := ulanzid200.New(
 		ulanzid200.CLOCK,
-    config.GetIconsDir(),
+		config.GetIconsDir(),
 		config.GetTempDir(),
 	)
 	appDetector := appdetector.New(config.GetSettingsPath(), config.GetIconsDir())
@@ -111,7 +125,7 @@ func onReady() {
 			if command != "" {
 				fmt.Printf("command: %#v\n", command)
 				if strings.HasPrefix(command, "@") {
-					command=strings.TrimSpace(strings.TrimPrefix(command, "@"))
+					command = strings.TrimSpace(strings.TrimPrefix(command, "@"))
 					fmt.Printf("command: %#v\n", command)
 					if command == "" {
 						stopProcessDetect = false
@@ -122,7 +136,7 @@ func onReady() {
 						setSettings(dev, settingsNP)
 					}
 				} else if strings.HasPrefix(command, "$") {
-					command=strings.TrimSpace(strings.TrimPrefix(command, "$"))
+					command = strings.TrimSpace(strings.TrimPrefix(command, "$"))
 					_ = appdetector.FocusOrRun(command)
 					if stopProcessDetect {
 						setSettings(dev, settingsNP)

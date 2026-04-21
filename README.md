@@ -4,6 +4,7 @@ Linux tray application for Ulanzi D200 stream deck devices. Assign custom button
 
 ## Features
 
+- **Web UI** — configure buttons via a browser (tray menu: "Web Settings") — opens on a random free port
 - **Window-aware button layouts** — switch button configurations automatically when you switch apps
 - **Command buttons** — launch apps, focus windows, switch profiles, or run shell commands
 - **Autostart** — toggle on login via tray menu

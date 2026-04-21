@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,8 +19,9 @@ var IconsDir string
 // SettingsPath is the settings file path (set from main)
 var SettingsPath string
 
-// StartServer starts the web UI on the given port.
-func StartServer(port int) {
+// StartServer starts the web UI on a random free port.
+// It returns the actual port and a cancel function.
+func StartServer() (port int, cancel func(), err error) {
 	http.HandleFunc("/api/settings", handleSettings)
 	http.HandleFunc("/api/icons", handleIcons)
 	http.HandleFunc("/api/upload", handleUpload)
@@ -32,11 +34,22 @@ func StartServer(port int) {
 	staticSub, _ := fs.Sub(staticFS, "static")
 	http.Handle("/", http.FileServer(http.FS(staticSub)))
 
-	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("Web UI starting at http://localhost%s\n", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		fmt.Printf("Web server error: %v\n", err)
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, nil, fmt.Errorf("listen: %w", err)
 	}
+
+	port = listener.Addr().(*net.TCPAddr).Port
+	fmt.Printf("Web UI starting at http://localhost:%d\n", port)
+
+	go func() {
+		if serveErr := http.Serve(listener, nil); serveErr != nil && serveErr != http.ErrServerClosed {
+			fmt.Printf("Web server error: %v\n", serveErr)
+		}
+	}()
+
+	cancel = func() { listener.Close() }
+	return port, cancel, nil
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {

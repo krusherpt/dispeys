@@ -15,3 +15,4 @@ dispeysController/
 # Local tooling
 .claude/settings.local.json
 .caliber/
+.pi/

@@ -327,7 +327,7 @@ func zipIsValid(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	for i := int64(1016); i < fileInfo.Size(); i += 1024 {
 		_, err = f.Seek(i, io.SeekStart)

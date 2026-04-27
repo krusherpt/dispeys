@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-26T23:58:08.987Z",
+  "timestamp": "2026-04-27T00:30:00.824Z",
   "error": "Claude Code CLI is installed but not logged in. Run `claude` in your terminal to log in, then retry.",
   "stack": "Error: Claude Code CLI is installed but not logged in. Run `claude` in your terminal to log in, then retry.\n    at createProvider (file:///usr/lib/node_modules/@rely-ai/caliber/dist/bin.js:3527:15)\n    at getProvider (file:///usr/lib/node_modules/@rely-ai/caliber/dist/bin.js:3559:20)\n    at validateModel (file:///usr/lib/node_modules/@rely-ai/caliber/dist/bin.js:3621:20)\n    at refreshCommand (file:///usr/lib/node_modules/@rely-ai/caliber/dist/bin.js:13025:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async Command.wrapper (file:///usr/lib/node_modules/@rely-ai/caliber/dist/bin.js:15030:7)\n    at async Command.parseAsync (/usr/lib/node_modules/@rely-ai/caliber/node_modules/commander/lib/command.js:1104:5)",
   "cwd": "/home/nyankopc/ai/obsidian/the vault/Planner/Projects/dispeys",

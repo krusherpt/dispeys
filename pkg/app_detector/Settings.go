@@ -36,9 +36,7 @@ var iconsFS embed.FS
 var AppSettings Settings
 
 func CreateDefaultFiles(path, iconsTargetDir string) (created bool, err error) {
-	fmt.Println(iconsTargetDir)
 	dir := filepath.Dir(path)
-	fmt.Println(dir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false, fmt.Errorf("mkdir error: %w", err)
 	}
@@ -66,7 +64,6 @@ func CreateDefaultFiles(path, iconsTargetDir string) (created bool, err error) {
 	}
 
 	err = fs.WalkDir(iconsFS, "icons", func(path string, d fs.DirEntry, walkErr error) error {
-		fmt.Println(path)
 		if walkErr != nil {
 			return walkErr
 		}
@@ -76,7 +73,6 @@ func CreateDefaultFiles(path, iconsTargetDir string) (created bool, err error) {
 
 		relName := filepath.Base(path)
 		targetPath := filepath.Join(iconsTargetDir, relName)
-		fmt.Println(targetPath)
 
 		if _, err := os.Stat(targetPath); err == nil {
 			return nil
@@ -103,7 +99,6 @@ func CreateDefaultFiles(path, iconsTargetDir string) (created bool, err error) {
 		}
 		_ = outFile.Close()
 
-		fmt.Println(targetPath)
 		if err := os.Rename(tmpTarget, targetPath); err != nil {
 			_ = os.Remove(tmpTarget)
 			return fmt.Errorf("не удалось переименовать %s -> %s: %w", tmpTarget, targetPath, err)

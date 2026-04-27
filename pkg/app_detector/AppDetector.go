@@ -12,7 +12,8 @@ type AppDetector struct {
 	settingsFilePath   string
 	iconsDirPath       string
 	processChangedChan chan *Application
-	stopped					   bool
+	stopped            bool
+	lastQueryTime      time.Time
 }
 
 func New(
@@ -20,7 +21,7 @@ func New(
 ) AppDetector {
 	return AppDetector{
 		settingsFilePath: SettingsFilePath,
-		iconsDirPath: IconsDirPath,
+		iconsDirPath:     IconsDirPath,
 		processChangedChan: make(chan *Application),
 	}
 }
@@ -35,15 +36,23 @@ func (a *AppDetector) ProcessChangedChan() chan *Application {
 func (a *AppDetector) Start() {
 	go func() {
 		for {
+			// Throttle subprocess calls: only query if >1s since last successful query
+			if time.Since(a.lastQueryTime) < 1*time.Second {
+				// Quick check: just get the window ID (lightweight, no xprop/ps)
+				currentWinID, _ := getActiveWindowID()
+				if currentWinID == winID {
+					time.Sleep(200 * time.Millisecond)
+					continue
+				}
+				// Window changed, fall through to full query
+			}
+
 			currentProcessName, currentWinID, err := getActiveWindowProcessName(winID)
 			if err == nil && currentProcessName != "" {
 				if processName == "" || processName != currentProcessName {
 					processName = currentProcessName
 					winID = currentWinID
-					_, loadErr := LoadAppSettings(a.settingsFilePath, a.iconsDirPath)
-					if loadErr != nil {
-						fmt.Println("LoadAppSettings error:", loadErr)
-					}
+					a.lastQueryTime = time.Now()
 					settings := GetSettingsForProcess(processName)
 					if settings == nil {
 						settings = GetSettingsForProcess("default")
@@ -71,6 +80,16 @@ func (a *AppDetector) Start() {
 
 func (a *AppDetector) Stop() {
 	a.stopped = true
+}
+
+// getActiveWindowID returns just the active window ID using xdotool only.
+// Fast, non-blocking, no subprocess overhead beyond xdotool.
+func getActiveWindowID() (string, error) {
+	winIDRaw, err := exec.Command("xdotool", "getactivewindow").Output()
+	if err != nil {
+		return "", fmt.Errorf("не удалось получить активное окно: %w", err)
+	}
+	return strings.TrimSpace(string(winIDRaw)), nil
 }
 
 func getActiveWindowProcessName(prevWinID string) (processName string, winID string, err error) {

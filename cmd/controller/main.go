@@ -109,7 +109,6 @@ func onReady() {
 		keyPressedChan := dev.KeyPressedChan()
 		for {
 			keyPressedEvent := <-keyPressedChan
-			fmt.Printf("keyPressedEvent: %#v\n", keyPressedEvent)
 			var command string
 			if stopProcessDetect {
 				if settingsNP == nil || len(settingsNP.Buttons) <= keyPressedEvent.Index {
@@ -123,10 +122,8 @@ func onReady() {
 				command = settings.Buttons[keyPressedEvent.Index].Command
 			}
 			if command != "" {
-				fmt.Printf("command: %#v\n", command)
 				if strings.HasPrefix(command, "@") {
 					command = strings.TrimSpace(strings.TrimPrefix(command, "@"))
-					fmt.Printf("command: %#v\n", command)
 					if command == "" {
 						stopProcessDetect = false
 						setSettings(dev, settings)
@@ -161,9 +158,8 @@ func onReady() {
 
 	// Load and set initial default settings after a short delay
 	time.Sleep(500 * time.Millisecond)
-	fmt.Println("Loading initial settings...")
-	loaded, err := appdetector.LoadAppSettings(config.GetSettingsPath(), config.GetIconsDir())
-	fmt.Printf("LoadAppSettings: loaded=%v err=%v\n", loaded, err)
+	ulanzid200.InitCachedMetrics()
+	_, _ = appdetector.LoadAppSettings(config.GetSettingsPath(), config.GetIconsDir())
 	initialSettings := appdetector.GetSettingsForProcess("default")
 	if initialSettings != nil {
 		settings = initialSettings
@@ -179,7 +175,6 @@ func setSettings(dev *ulanzid200.UlanziD200Device, settings *appdetector.Applica
 	}
 	buttons := make(map[int]ulanzid200.Button)
 	for i, button := range settings.Buttons {
-		fmt.Println(i, button.Name)
 		buttons[i] = ulanzid200.Button{
 			Icon: button.Icon,
 		}

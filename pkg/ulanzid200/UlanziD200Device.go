@@ -7,29 +7,32 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"errors"
-	"math/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/karalabe/hid"
 )
 
 type UlanziD200Device struct {
-	device          *hid.Device
-	keyPressedChan  chan *KeyPressedEvent
-	refreshChan     chan struct{}
-	brightness      int
-	labelStyle      LabelStyle
-	smallWindowMode SmallWindowMode
-	smallWindowData SmallWindowData
-	lastActionTime  time.Time
-	iconPath        string
-	tmpPath         string
-	stopped         bool
+	device           *hid.Device
+	keyPressedChan   chan *KeyPressedEvent
+	refreshChan      chan struct{}
+	brightness       int
+	labelStyle       LabelStyle
+	smallWindowMode  SmallWindowMode
+	smallWindowData  SmallWindowData
+	lastActionTime   time.Time
+	iconPath         string
+	tmpPath          string
+	stopped          bool
+	lastZipPath      string
+	lastButtonsHash  uint32
+	buttonsCacheMu   sync.RWMutex
 }
 
 const (
@@ -111,9 +114,17 @@ func (d *UlanziD200Device) SetLabelStyle(style LabelStyle, force bool) {
 	d.writePacket(packet)
 }
 
+func (d *UlanziD200Device) smallWindowDataEqual(other SmallWindowData) bool {
+	return d.smallWindowData.Mode == other.Mode &&
+		d.smallWindowData.CPU == other.CPU &&
+		d.smallWindowData.MEM == other.MEM &&
+		d.smallWindowData.GPU == other.GPU &&
+		d.smallWindowData.Time == other.Time
+}
+
 func (d *UlanziD200Device) SetSmallWindowData(data SmallWindowData, force bool) {
 	data.Mode = d.smallWindowMode
-	if !force && EqualJSON(d.smallWindowData, data) {
+	if !force && d.smallWindowDataEqual(data) {
 		return
 	}
 	d.smallWindowData = data
@@ -127,7 +138,11 @@ func (d *UlanziD200Device) SetSmallWindowData(data SmallWindowData, force bool) 
 
 func (d *UlanziD200Device) SetButtons(buttons map[int]Button, updateOnly bool) {
 	zipPath := d.prepareZip(buttons)
-	data, _ := os.ReadFile(zipPath)
+	data, err := os.ReadFile(zipPath)
+	if err != nil {
+		fmt.Println("SetButtons: failed to read zip:", err)
+		return
+	}
 
 	command := OUT_SET_BUTTONS
 	if updateOnly {
@@ -170,31 +185,41 @@ func (d *UlanziD200Device) readPacket(packet []byte) (n int, err error) {
 	return
 }
 
-var invalidBytes = [][]byte{
-	{0x00},
-	// {0x01},
-	{0x7c},
-}
-
-func randomString(n int) string {
-	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
+var invalidBytes = []byte{0x00, 0x7c}
 
 func containsInvalidByte(b byte) bool {
 	for _, inv := range invalidBytes {
-		if b == inv[0] {
+		if b == inv {
 			return true
 		}
 	}
 	return false
 }
 
+func buttonsHash(buttons map[int]Button) uint32 {
+	var h uint32
+	for i, btn := range buttons {
+		h ^= uint32(i) * 2654435761
+		for _, c := range btn.Name {
+			h ^= uint32(c) * 2654435761
+		}
+		for _, c := range btn.Icon {
+			h ^= uint32(c) * 2654435761
+		}
+	}
+	return h
+}
+
 func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
+	// Check cache first
+	d.buttonsCacheMu.RLock()
+	curHash := buttonsHash(buttons)
+	if curHash == d.lastButtonsHash && d.lastZipPath != "" {
+		d.buttonsCacheMu.RUnlock()
+		return d.lastZipPath
+	}
+	d.buttonsCacheMu.RUnlock()
+
 	buildPath := filepath.Join(d.tmpPath, ".build")
 	pagePath := filepath.Join(buildPath, "page")
 	_ = os.RemoveAll(pagePath)
@@ -227,8 +252,13 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 	hashHex := hex.EncodeToString(hash[:])
 	zipPath := filepath.Join(buildPath, hashHex+".zip")
 
+	// Check if zip already exists on disk (from a previous run)
 	_, err := os.Stat(zipPath)
-	if err == nil || !os.IsNotExist(err) {
+	if err == nil {
+		d.buttonsCacheMu.Lock()
+		d.lastButtonsHash = curHash
+		d.lastZipPath = zipPath
+		d.buttonsCacheMu.Unlock()
 		return zipPath
 	}
 
@@ -240,74 +270,82 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 		_ = copyFile(src, dst)
 	}
 
+	// Deterministic dummy: try increasing padding until zip is valid.
+	// Instead of blind random retries, use a fixed safe padding string
+	// that avoids invalid bytes at danger zones.
+	buildZipPath := filepath.Join(buildPath, ".build.zip")
 	dummyPath := filepath.Join(pagePath, "dummy.txt")
 
-	var dummyStr string
-	dummyRetries := 04
-	buildZipPath := filepath.Join(buildPath, ".build.zip")
-
-	for {
-		// Если это не первый заход — создаём dummy-файл
-		if dummyRetries > 0 {
-			fmt.Println("Generating dummy string...")
-			dummyStr += randomString(8 * dummyRetries)
-			err := os.WriteFile(dummyPath, []byte(dummyStr), 0644)
-			if err != nil {
-				panic(err)
+	const maxDummyRetries = 10
+	for attempt := 0; attempt <= maxDummyRetries; attempt++ {
+		if attempt > 0 {
+			// Use deterministic padding: repeat a safe byte pattern
+			padding := make([]byte, attempt*64)
+			for i := range padding {
+				padding[i] = byte((i*7 + 3) % 256)
+				// Ensure no invalid bytes (0x00, 0x7c)
+				if padding[i] == 0x00 || padding[i] == 0x7c {
+					padding[i] = 0x41
+				}
 			}
+			_ = os.WriteFile(dummyPath, padding, 0644)
 		}
 
-		// Создаём zip
-		err := ZipFolder(pagePath, buildZipPath)
-		if err != nil {
+		if err := ZipFolder(pagePath, buildZipPath); err != nil {
 			panic(err)
 		}
 
-		// Проверяем файл на наличие запрещённых байт в позициях 1016 + n*1024
-		fileInfo, err := os.Stat(buildZipPath)
-		if err != nil {
-			panic(err)
-		}
-
-		valid := true
-		f, err := os.Open(buildZipPath)
-		if err != nil {
-			panic(err)
-		}
-
-		for i := int64(1016); i < fileInfo.Size(); i += 1024 {
-			_, err = f.Seek(i, io.SeekStart)
-			if err != nil {
-				panic(err)
-			}
-
-			buf := make([]byte, 1)
-			_, err = f.Read(buf)
-			if err != nil && !errors.Is(err, io.EOF) {
-				panic(err)
-			}
-
-			if containsInvalidByte(buf[0]) {
-				valid = false
-				break
-			}
-		}
-		_ = f.Close()
-
-		if valid {
+		if zipIsValid(buildZipPath) {
 			break
 		}
 
-		dummyRetries++
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	if err := os.Rename(buildZipPath, zipPath); err != nil {
 		fmt.Printf("не удалось переименовать %s -> %s: %v", buildZipPath, zipPath, err)
 	}
 
-	fmt.Println("ZIP создан и прошёл проверку!")
+	// Update cache
+	d.buttonsCacheMu.Lock()
+	d.lastButtonsHash = curHash
+	d.lastZipPath = zipPath
+	d.buttonsCacheMu.Unlock()
+
 	return zipPath
+}
+
+// zipIsValid checks that no invalid bytes appear at packet-boundary positions
+// (1016 + n*1024) in the zip file.
+func zipIsValid(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	for i := int64(1016); i < fileInfo.Size(); i += 1024 {
+		_, err = f.Seek(i, io.SeekStart)
+		if err != nil {
+			return false
+		}
+
+		buf := make([]byte, 1)
+		_, err = f.Read(buf)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return false
+		}
+
+		if containsInvalidByte(buf[0]) {
+			return false
+		}
+	}
+	return true
 }
 
 func ZipFolder(srcDir, zipFile string) error {
@@ -369,9 +407,7 @@ func ZipFolder(srcDir, zipFile string) error {
 
 func copyFile(src, dst string) error {
 	data, err := os.ReadFile(src)
-	fmt.Println(src, dst)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 	return os.WriteFile(dst, data, 0644)

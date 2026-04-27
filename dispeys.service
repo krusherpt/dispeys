@@ -1,0 +1,14 @@
+[Unit]
+Description=Dispeys - Stream Deck Tray Controller
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/dispeysController
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

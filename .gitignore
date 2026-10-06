@@ -17,3 +17,8 @@ dispeysController/
 .claude/settings.local.json
 .caliber/
 .pi/
+
+
+# Added by cargo
+
+/target

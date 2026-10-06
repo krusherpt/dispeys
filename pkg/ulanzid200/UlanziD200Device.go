@@ -33,6 +33,7 @@ type UlanziD200Device struct {
 	lastZipPath      string
 	lastButtonsHash  uint32
 	buttonsCacheMu   sync.RWMutex
+	ioMu             sync.Mutex // serializes complete HID transactions
 }
 
 const (
@@ -138,6 +139,18 @@ func (d *UlanziD200Device) SetSmallWindowData(data SmallWindowData, force bool) 
 
 func (d *UlanziD200Device) SetButtons(buttons map[int]Button, updateOnly bool) {
 	zipPath := d.prepareZip(buttons)
+
+	// Output zip to /tmp before uploading to device
+	tmpZipPath := "/tmp/ulanzi_buttons.zip"
+	if src, err := os.Open(zipPath); err == nil {
+		if dst, err := os.Create(tmpZipPath); err == nil {
+			_, _ = io.Copy(dst, src)
+			_ = dst.Close()
+		}
+		_ = src.Close()
+		fmt.Printf("Zip output to %s (from %s)\n", tmpZipPath, zipPath)
+	}
+
 	data, err := os.ReadFile(zipPath)
 	if err != nil {
 		fmt.Println("SetButtons: failed to read zip:", err)
@@ -150,9 +163,20 @@ func (d *UlanziD200Device) SetButtons(buttons map[int]Button, updateOnly bool) {
 	}
 
 	chunkSize := 1024
+
+	// Serialize the whole multipart transfer: the 500ms small-window ticker
+	// must not slip a packet into the middle of the upload — the firmware
+	// has no resync and silently discards the rest (layout never renders).
+	d.ioMu.Lock()
+	defer d.ioMu.Unlock()
+
 	chunk := data[:chunkSize-8]
 	packet := BuildPacket(command, len(data), chunk)
-	d.writePacket(packet)
+	d.writePacketLocked(packet)
+
+	// Firmware needs breathing room or it drops chunks (verified against
+	// the working opendeck-ulanzyd200 plugin pacing).
+	time.Sleep(50 * time.Millisecond)
 
 	for i := chunkSize - 8; i < len(data); i += chunkSize {
 		end := i + chunkSize
@@ -161,11 +185,18 @@ func (d *UlanziD200Device) SetButtons(buttons map[int]Button, updateOnly bool) {
 		}
 		chunk := make([]byte, chunkSize)
 		copy(chunk, data[i:end])
-		d.writePacket(chunk)
+		d.writePacketLocked(chunk)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
 func (d *UlanziD200Device) writePacket(packet []byte) {
+	d.ioMu.Lock()
+	defer d.ioMu.Unlock()
+	d.writePacketLocked(packet)
+}
+
+func (d *UlanziD200Device) writePacketLocked(packet []byte) {
 	if d.device != nil {
 		_, err := d.device.Write(packet)
 		if err != nil {
@@ -252,14 +283,18 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 	hashHex := hex.EncodeToString(hash[:])
 	zipPath := filepath.Join(buildPath, hashHex+".zip")
 
-	// Check if zip already exists on disk (from a previous run)
-	_, err := os.Stat(zipPath)
-	if err == nil {
+	// Check if zip already exists on disk (from a previous run).
+	// Revalidate boundaries before reusing: a corrupt archive cached by an
+	// older buggy retry loop would otherwise be resent on every start.
+	if _, err := os.Stat(zipPath); err == nil && zipIsValid(zipPath) {
 		d.buttonsCacheMu.Lock()
 		d.lastButtonsHash = curHash
 		d.lastZipPath = zipPath
 		d.buttonsCacheMu.Unlock()
 		return zipPath
+	}
+	if _, err := os.Stat(zipPath); err == nil {
+		_ = os.Remove(zipPath) // rebuild below
 	}
 
 	_ = os.WriteFile(filepath.Join(pagePath, "manifest.json"), manifestData, 0644)
@@ -276,17 +311,27 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 	buildZipPath := filepath.Join(buildPath, ".build.zip")
 	dummyPath := filepath.Join(pagePath, "dummy.txt")
 
-	const maxDummyRetries = 10
+	const maxDummyRetries = 40
 	for attempt := 0; attempt <= maxDummyRetries; attempt++ {
 		if attempt > 0 {
-			// Use deterministic padding: repeat a safe byte pattern
-			padding := make([]byte, attempt*64)
+			// Stride MUST be 1 (len=attempt). The old attempt*64 stride
+			// could never fix a misaligned boundary: 64 divides 1024, so
+			// every retry shifted content by a multiple of the packet size
+			// and landed on the same alignment. Random reseeded content
+			// also changes the deflate stream of the dummy itself.
+			// (dummy.txt is alphabetically first in ZipFolder's Walk, so
+			// its length shifts every later byte in the archive.)
+			padding := make([]byte, attempt)
+			state := uint32(0x9E3779B9) * uint32(attempt|1)
 			for i := range padding {
-				padding[i] = byte((i*7 + 3) % 256)
-				// Ensure no invalid bytes (0x00, 0x7c)
-				if padding[i] == 0x00 || padding[i] == 0x7c {
-					padding[i] = 0x41
+				state ^= state << 13
+				state ^= state >> 17
+				state ^= state << 5
+				b := byte(state >> 24)
+				if b == 0x00 || b == 0x7c {
+					b = 0x41
 				}
+				padding[i] = b
 			}
 			_ = os.WriteFile(dummyPath, padding, 0644)
 		}
@@ -299,7 +344,11 @@ func (d *UlanziD200Device) prepareZip(buttons map[int]Button) string {
 			break
 		}
 
-		time.Sleep(10 * time.Millisecond)
+		if attempt == maxDummyRetries {
+			fmt.Println("prepareZip: WARNING zip still has invalid boundary bytes after retries; sending anyway")
+		}
+
+		time.Sleep(5 * time.Millisecond)
 	}
 
 	if err := os.Rename(buildZipPath, zipPath); err != nil {

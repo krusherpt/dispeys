@@ -51,6 +51,7 @@ func onReady() {
 					}
 					webCancel = cancel
 					fmt.Printf("Web UI open at http://localhost:%d\n", port)
+					_ = exec.Command("xdg-open", fmt.Sprintf("http://localhost:%d", port)).Start()
 				}
 			case <-mSettingsWeb.ClickedCh:
 				openSettingsWindow()

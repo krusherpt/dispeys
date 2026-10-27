@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -186,10 +187,23 @@ func SaveAppSettings(path string) error {
 
 func GetSettingsForProcess(process string) (result *Application) {
 	var ok bool
-	if result, ok = AppSettings.Applications[process]; !ok {
-		if result, ok = AppSettings.Applications["default"]; !ok {
-			result = nil
-		}
+	if result, ok = AppSettings.Applications[process]; ok {
+		return result
 	}
-	return
+	if result, ok = AppSettings.Applications["default"]; ok {
+		return result
+	}
+	// No exact match and no "default" profile: fall back to the first
+	// application in sorted key order. Without this, a settings file whose
+	// profiles are all named after apps (e.g. "code", "soundboard") loads
+	// nothing at startup and the device is never re-uploaded after an edit.
+	keys := make([]string, 0, len(AppSettings.Applications))
+	for k := range AppSettings.Applications {
+		keys = append(keys, k)
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	sort.Strings(keys)
+	return AppSettings.Applications[keys[0]]
 }

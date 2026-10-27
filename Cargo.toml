@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "dispeys-hid",
+    "dispeys-settings",
+    "dispeys-detector",
+    "dispeys-monitor",
+    "dispeys-examples",
+]
+resolver = "2"

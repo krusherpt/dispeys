@@ -1,12 +1,17 @@
 package webserver
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -83,19 +88,21 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		name += ".png"
 	}
 
-	// Decode any image format
-	decoded, _, err := image.Decode(file)
+	// Decode any raster format; SVG icon packs are rasterized through
+	// rsvg-convert/magick because the device only accepts PNG.
+	data, err := io.ReadAll(file)
 	if err != nil {
-		_, _ = file.Seek(0, 0)
-		decoded, err = xwebp.Decode(file)
-		if err != nil {
-			http.Error(w, "invalid image", http.StatusBadRequest)
-			return
-		}
+		http.Error(w, "cannot read upload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	decoded, err := decodeIcon(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	bounds := decoded.Bounds()
-	if bounds.Dx() < 64 || bounds.Dy() < 64 {
-		http.Error(w, "image too small (min 64x64)", http.StatusBadRequest)
+	if bounds.Dx() < 16 || bounds.Dy() < 16 {
+		http.Error(w, fmt.Sprintf("image too small (%dx%d, min 16x16)", bounds.Dx(), bounds.Dy()), http.StatusBadRequest)
 		return
 	}
 
@@ -118,5 +125,70 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"name": name})
+}
+
+// decodeIcon turns upload bytes into an image, accepting PNG/JPEG/GIF/WebP and
+// rasterizing SVG (common in icon packs) with whatever converter is installed.
+func decodeIcon(data []byte) (image.Image, error) {
+	if img, _, err := image.Decode(bytes.NewReader(data)); err == nil {
+		return img, nil
+	}
+	if img, err := xwebp.Decode(bytes.NewReader(data)); err == nil {
+		return img, nil
+	}
+	if looksLikeSVG(data) {
+		img, err := rasterizeSVG(data)
+		if err != nil {
+			return nil, fmt.Errorf("SVG conversion failed: %v", err)
+		}
+		return img, nil
+	}
+	return nil, errors.New("unsupported image format - send PNG, JPEG, WebP or SVG")
+}
+
+func looksLikeSVG(data []byte) bool {
+	head := data
+	if len(head) > 2048 {
+		head = head[:2048]
+	}
+	s := strings.ToLower(string(head))
+	return strings.Contains(s, "<svg") || (strings.HasPrefix(s, "<?xml") && strings.Contains(s, "svg"))
+}
+
+func rasterizeSVG(data []byte) (image.Image, error) {
+	candidates := []struct {
+		bin  string
+		args []string
+	}{
+		{"rsvg-convert", []string{"-w", "196", "-h", "196", "--format=png"}},
+		{"magick", []string{"svg:-", "-resize", "196x196", "png:-"}},
+		{"convert", []string{"svg:-", "-resize", "196x196", "png:-"}},
+	}
+	var lastErr error
+	for _, c := range candidates {
+		bin, err := exec.LookPath(c.bin)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		cmd := exec.Command(bin, c.args...)
+		cmd.Stdin = bytes.NewReader(data)
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		if err := cmd.Run(); err != nil {
+			lastErr = fmt.Errorf("%s: %v", c.bin, err)
+			continue
+		}
+		img, _, err := image.Decode(bytes.NewReader(out.Bytes()))
+		if err != nil {
+			lastErr = fmt.Errorf("%s output: %v", c.bin, err)
+			continue
+		}
+		return img, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no SVG rasterizer found")
+	}
+	return nil, lastErr
 }
 
